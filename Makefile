@@ -16,4 +16,4 @@ SEARCH = macallan
 .PHONY: crawl
 crawl:
 	source ".venv/bin/activate"
-	scrapy crawl "whiskies" -a search_term="$(SEARCH)"
+	scrapy crawl "whiskies" -a search_term="$(SEARCH)" -o "$(SEARCH).csv"
