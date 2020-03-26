@@ -61,7 +61,7 @@ class WhiskiesSpider(Spider):
         yield whisky
 
     def parse(self, response):
-        for tr in islice(response.css("table.whiskytable tbody tr"), 20):
+        for tr in response.css("table.whiskytable tbody tr"):
             url = strip(tr.xpath("td[3]/a/@href").get())
             whisky = Whisky(
                 url = url,
