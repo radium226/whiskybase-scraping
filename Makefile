@@ -13,6 +13,10 @@ requirements: .venv/bin/activate
 
 SEARCH = macallan
 
+.PHONY: test
+test:
+	source ".venv/bin/activate"
+	python -m "unittest"
 .PHONY: crawl
 crawl:
 	source ".venv/bin/activate"

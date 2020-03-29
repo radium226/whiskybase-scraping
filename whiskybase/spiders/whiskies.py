@@ -14,7 +14,32 @@ def strip(text):
         return None
 
 def text(e):
-    return strip(BeautifulSoup(e.get()).get_text())
+    t = e.get()
+    if t:
+        return strip(BeautifulSoup(t).get_text())
+    return None
+
+def extract_currency(text):
+    if text:
+        match = re.search("^(.*?)[0-9,.]+(.*)$", text)
+        if match:
+            try:
+                group_1 = match.group(1)
+            except:
+                group_1 = ""
+
+            try:
+                group_2 = match.group(2)
+            except:
+                group_2 = ""
+
+            currency = (group_1 + group_2).strip()
+            print(f"currency={currency}")
+            currency = currency if currency != "" else None
+
+            return currency
+        return None
+    return None
 
 def extract_price(text):
     if text:
@@ -40,7 +65,9 @@ class Whisky(Item):
     bar_code = Field()
     rating = Field()
     average_price = Field()
+    average_price_ccy = Field()
     lower_price = Field()
+    lower_price_ccy = Field()
     bottler = Field()
 
 class WhiskiesSpider(Spider):
@@ -55,7 +82,9 @@ class WhiskiesSpider(Spider):
     def parse_price(self, response):
         whisky = response.meta["whisky"]
         whisky["average_price"] = extract_price(strip(response.css(".block-shopping .block-price").xpath("p[2]/text()").get()))
+        whisky["average_price_ccy"] = extract_currency(strip(response.css(".block-shopping .block-price").xpath("p[2]/text()").get()))
         whisky["lower_price"] = extract_price(strip(response.css("#panel-shoplinks .wb--shop-links-panel--price").xpath("text()").get()))
+        whisky["lower_price_ccy"] = extract_currency(strip(response.css("#panel-shoplinks .wb--shop-links-panel--price").xpath("text()").get()))
         bottler = text(response.css(".block-desc dl").xpath("dd[3]"))
         whisky["bottler"] = bottler
         yield whisky
