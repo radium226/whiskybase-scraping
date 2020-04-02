@@ -142,6 +142,7 @@ cython_debug/
 media
 static
 
-# CSV and ZIP
+# Exports
 /*.csv
 /*.zip
+/*.xlsx
