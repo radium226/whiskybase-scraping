@@ -6,6 +6,7 @@ from itertools import islice
 from scrapy.crawler import CrawlerProcess
 from bs4 import BeautifulSoup
 import re
+import itertools as it
 
 def strip(text):
     if text:
@@ -51,6 +52,11 @@ def extract_price(text):
     else:
         return None
 
+def extract_details(response):
+    details = dict()
+    for dt, dd in zip(response.css("#whisky-details dl dt"), response.css("#whisky-details dl dd")):
+        details[text(dt)] = text(dd)
+    return details
 
 class Whisky(Item):
 
@@ -69,6 +75,8 @@ class Whisky(Item):
     lower_price = Field()
     lower_price_ccy = Field()
     bottler = Field()
+    vintage = Field()
+    distillery = Field()
 
 class WhiskiesSpider(Spider):
     name = 'whiskies'
@@ -79,14 +87,21 @@ class WhiskiesSpider(Spider):
         self.search_term = search_term
         super().__init__(**kwargs)
 
+
+
+
     def parse_price(self, response):
+        details = extract_details(response)
         whisky = response.meta["whisky"]
         whisky["average_price"] = extract_price(strip(response.css(".block-shopping .block-price").xpath("p[2]/text()").get()))
         whisky["average_price_ccy"] = extract_currency(strip(response.css(".block-shopping .block-price").xpath("p[2]/text()").get()))
         whisky["lower_price"] = extract_price(strip(response.css("#panel-shoplinks .wb--shop-links-panel--price").xpath("text()").get()))
         whisky["lower_price_ccy"] = extract_currency(strip(response.css("#panel-shoplinks .wb--shop-links-panel--price").xpath("text()").get()))
-        bottler = text(response.css(".block-desc dl").xpath("dd[3]"))
-        whisky["bottler"] = bottler
+        whisky["bottler"] = details["Bottler"]
+
+        whisky["vintage"] = details["Vintage"] if "Vintage" in details else None
+        whisky["distillery"] = details["Distillery"] if "Distillery" in details else None
+
         yield whisky
 
     def parse(self, response):
