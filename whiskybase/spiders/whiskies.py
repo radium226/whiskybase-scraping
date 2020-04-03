@@ -8,17 +8,20 @@ from bs4 import BeautifulSoup
 import re
 import itertools as it
 
+
 def strip(text):
     if text:
         return text.strip()
     else:
         return None
 
+
 def text(e):
     t = e.get()
     if t:
-        return strip(BeautifulSoup(t).get_text())
+        return strip(BeautifulSoup(t, features="lxml").get_text())
     return None
+
 
 def extract_currency(text):
     if text:
@@ -42,6 +45,7 @@ def extract_currency(text):
         return None
     return None
 
+
 def extract_price(text):
     if text:
         match = re.search('([0-9,.]+)', text)
@@ -52,11 +56,13 @@ def extract_price(text):
     else:
         return None
 
+
 def extract_details(response):
     details = dict()
     for dt, dd in zip(response.css("#whisky-details dl dt"), response.css("#whisky-details dl dd")):
         details[text(dt)] = text(dd)
     return details
+
 
 class Whisky(Item):
 
@@ -78,19 +84,29 @@ class Whisky(Item):
     vintage = Field()
     distillery = Field()
 
+
 class WhiskiesSpider(Spider):
+
     name = 'whiskies'
     allowed_domains = ['www.whiskybase.com']
 
-    def __init__(self, search_term=None, *args, **kwargs):
-        self.start_urls = [f"https://www.whiskybase.com/search?q={search_term}"]
-        self.search_term = search_term
+    def __init__(self, type = None, year=None, term=None, *args, **kwargs):
         super().__init__(**kwargs)
+        self.type = type
+        self.new_releases_year = year
+        self.search_term = term
+
+    def start_requests(self):
+        routes = {
+            "new-releases": lambda spider: Request(f"https://www.whiskybase.com/whiskies/new-releases?style=table&bottle_date_year={spider.new_releases_year}", callback=self.parse_new_releases),
+            "search": lambda spider: Request(f"https://www.whiskybase.com/search?q={spider.search_term}", callback=self.parse_search)
+        }
+
+        yield routes[self.type](self)
 
 
 
-
-    def parse_price(self, response):
+    def parse_details(self, response):
         details = extract_details(response)
         whisky = response.meta["whisky"]
         whisky["average_price"] = extract_price(strip(response.css(".block-shopping .block-price").xpath("p[2]/text()").get()))
@@ -104,21 +120,29 @@ class WhiskiesSpider(Spider):
 
         yield whisky
 
-    def parse(self, response):
+
+    def parse_whisky(self, tr, offset):
+        url = strip(tr.xpath(f"td[{1 + offset}]/a/@href").get())
+        whisky = Whisky(
+            url = url,
+            name = strip(tr.xpath(f"td[{1 + offset}]/a/text()").get()),
+            serie = text(tr.xpath(f"td[{1 + offset}]/a/span")),
+            stated_age = strip(tr.xpath(f"td[{2 + offset}]/text()").get()),
+            strength = strip(tr.xpath(f"td[{3 + offset}]/text()").get()),
+            size = strip(tr.xpath(f"td[{4 + offset}]/text()").get()),
+            bottled = strip(tr.xpath(f"td[{5 + offset}]/text()").get()),
+            cask_number = strip(tr.xpath(f"td[{7 + offset}]/text()").get()),
+            bar_code = strip(tr.xpath(f"td[{7 + offset}]/text()").get()),
+            rating = strip(tr.xpath(f"td[{8 + offset}]/text()").get())
+        )
+        request = Request(url, callback=self.parse_details)
+        request.meta['whisky'] = whisky
+        yield request
+
+    def parse_search(self, response):
         for tr in response.css("table.whiskytable tbody tr"):
-            url = strip(tr.xpath("td[3]/a/@href").get())
-            whisky = Whisky(
-                url = url,
-                name = strip(tr.xpath("td[3]/a/text()").get()),
-                serie = text(tr.xpath("td[3]/a/span")),
-                stated_age = strip(tr.xpath("td[4]/text()").get()),
-                strength = strip(tr.xpath("td[5]/text()").get()),
-                size = strip(tr.xpath("td[6]/text()").get()),
-                bottled = strip(tr.xpath("td[7]/text()").get()),
-                cask_number = strip(tr.xpath("td[8]/text()").get()),
-                bar_code = strip(tr.xpath("td[9]/text()").get()),
-                rating = strip(tr.xpath("td[10]/text()").get())
-            )
-            request = Request(url, callback=self.parse_price)
-            request.meta['whisky'] = whisky
-            yield request
+            yield from self.parse_whisky(tr, 2)
+
+    def parse_new_releases(self, response):
+        for tr in response.css("table.whiskytable tbody tr"):
+            yield from self.parse_whisky(tr, 1)
