@@ -68,6 +68,16 @@ clean:
 MIN_YEAR = 1870
 MAX_YEAR = 2020
 
+BACKGROUND = false
+
 .PHONY: crawl-all
 crawl-all:
-	seq $(MIN_YEAR) $(MAX_YEAR) | xargs -I {} sh -c 'make crawl-new-releases YEAR="{}" || exit 255'
+	if $(BACKGROUND); then
+		systemd-run \
+			--user \
+			--same-dir \
+			--unit="whiskybase-scraping" \
+			make crawl-all BACKGROUND=false	
+	else
+		seq $(MIN_YEAR) $(MAX_YEAR) | xargs -I {} sh -c 'make crawl-new-releases YEAR="{}" || exit 255
+	fi
