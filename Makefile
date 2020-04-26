@@ -72,12 +72,12 @@ BACKGROUND = false
 
 .PHONY: crawl-all
 crawl-all:
-	if $(BACKGROUND); then
+	if $(BACKGROUND); then \
 		systemd-run \
 			--user \
 			--same-dir \
 			--unit="whiskybase-scraping" \
 			make crawl-all BACKGROUND=false	; \
 	else \
-		seq $(MIN_YEAR) $(MAX_YEAR) | xargs -I {} sh -c 'make crawl-new-releases YEAR="{}" || exit 255 ; \
+		{ seq $(MIN_YEAR) $(MAX_YEAR) | xargs -I {} sh -c 'make crawl-new-releases YEAR="{}" || exit 255 ; } ; \
 	fi
